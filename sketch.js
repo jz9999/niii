@@ -20,7 +20,6 @@ function setup() {
   let scaleFactor = 0.8; // 放大因子
   let imgWidth = img.width * scaleFactor; 
   let imgHeight = img.height * scaleFactor; 
-  
   let startX = (width - imgWidth) / 2; 
   let startY = (height - imgHeight) / 1.7; 
   img.loadPixels();
@@ -34,15 +33,18 @@ function setup() {
       let brightness = (r + g + b) / 3;
       let char = getChar(brightness);
       particles.push({
-        char,
-        x: mouseX, 
-        y: mouseY,
+        char: char,
+        x: startX + x * scaleFactor, 
+        y: startY + y * scaleFactor,
         targetX: startX + x * scaleFactor, 
         targetY: startY + y * scaleFactor,
-        active: false
+        active: false,
+        awaitingActivation: false, // 新属性，表示粒子等待激活
+        lifespan: 255 // 每个粒子初始生命周期
       });
     }
   }
+  
   noStroke();
   textSize(particleSize);
   textAlign(CENTER, CENTER);
@@ -50,37 +52,53 @@ function setup() {
 
 
 function draw() {
-  //background(249,213,140);
   background(255);
 
-  //image(bgImg, 0, 0, width, height);
-
-  for (let particle of particles) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let particle = particles[i];
     if (particle.active) {
       let dx = particle.targetX - particle.x;
       let dy = particle.targetY - particle.y;
       particle.x += dx * 0.1;
       particle.y += dy * 0.1;
-    } else {
-      let distance = dist(mouseX, mouseY, particle.targetX, particle.targetY);
-      if (distance < 50) {
-        particle.active = true;
-      }
     }
-    //fill(241,119,0);
-    //fill(234,97,50);
-    fill(249,210,19);
-    text(particle.char, particle.x, particle.y);
-  }
 
+    // 检查鼠标是否接近粒子
+    let distance = dist(mouseX, mouseY, particle.x, particle.y);
+    let closeEnough = distance < 50; // 设定一个接近的阈值
+
+    if (particle.lifespan > 0) {
+      fill(249, 210, 19, particle.lifespan);
+      text(particle.char, particle.x, particle.y);
+
+      if (!closeEnough) { // 当鼠标不接近时才减少生命周期
+        particle.lifespan -= 0.4;
+      }
+    } else if (!particle.awaitingActivation) {
+      // 标记为待激活状态，不再渲染
+      particle.awaitingActivation = true;
+    }
+  }
   image(bgImg, 0, 0, width, height);
 }
 
 function mouseMoved() {
   for (let particle of particles) {
-    if (!particle.active) {
-      particle.x = mouseX;
-      particle.y = mouseY;
+    let distance = dist(mouseX, mouseY, particle.x, particle.y);
+    if (distance < 50) { // 鼠标靠近粒子
+      if (particle.awaitingActivation) {
+        // 如果粒子正在等待激活，则重新激活它并重置生命周期
+        particle.active = true;
+        particle.awaitingActivation = false;
+        particle.lifespan = 255; // 重置生命周期
+      } else if (particle.active) {
+        // 如果粒子已经激活，则增加其生命周期
+        particle.lifespan += 100; // 增加50生命周期
+        // 确保生命周期不超过某个最大值，例如300
+        if (particle.lifespan > 350) {
+          particle.lifespan = 350;
+        }
+      }
     }
   }
 }
